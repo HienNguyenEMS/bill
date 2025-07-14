@@ -52,11 +52,43 @@
       return decodeURIComponent(new URLSearchParams(location.search).get(name) || "");
     }
 
-    function numberToWords(n) {
-      const formatter = new Intl.NumberFormat('vi-VN', {
-        style: 'currency', currency: 'VND'
-      });
-      return formatter.format(n).replace("₫", " đồng");
+    function numberToWords(number) {
+      const n = parseInt(number, 10);
+      if (isNaN(n)) return "";
+
+      const units = ["", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];
+      const teens = ["", "mười", "hai mươi", "ba mươi", "bốn mươi", "năm mươi", "sáu mươi", "bảy mươi", "tám mươi", "chín mươi"];
+      
+      function readTriple(num) {
+        const hundred = Math.floor(num / 100);
+        const ten = Math.floor((num % 100) / 10);
+        const unit = num % 10;
+        let str = "";
+
+        if (hundred > 0) str += units[hundred] + " trăm ";
+        if (ten > 0) str += teens[ten] + " ";
+        else if (hundred > 0 && unit > 0) str += "lẻ ";
+        if (unit > 0) str += units[unit];
+
+        return str.trim();
+      }
+
+      if (n === 0) return "Không đồng";
+
+      const parts = [];
+      const suffixes = ["", "nghìn", "triệu", "tỷ"];
+      let remain = n, i = 0;
+
+      while (remain > 0) {
+        const chunk = remain % 1000;
+        if (chunk > 0) {
+          parts.unshift(readTriple(chunk) + (suffixes[i] ? " " + suffixes[i] : ""));
+        }
+        remain = Math.floor(remain / 1000);
+        i++;
+      }
+
+      return parts.join(" ").replace(/\s+/g, " ").trim() + " đồng";
     }
 
     function formatNumber(n) {
@@ -71,9 +103,12 @@
       const orderId = getParam("orderId");
       const date = getParam("date");
       const customer = getParam("customer");
-      const discount = parseInt(getParam("discount") || "0", 10);
-      let items = [];
 
+      const total = parseInt(getParam("total") || "0", 10);
+      const discount = parseInt(getParam("discount") || "0", 10);
+      const final = parseInt(getParam("final") || "0", 10);
+
+      let items = [];
       try {
         items = JSON.parse(getParam("items"));
       } catch (e) {
@@ -85,15 +120,15 @@
       document.getElementById("orderId").textContent = orderId;
       document.getElementById("orderDate").textContent = date;
       document.getElementById("customerName").textContent = customer;
+      document.getElementById("total").textContent = formatNumber(total);
       document.getElementById("discount").textContent = formatNumber(discount);
+      document.getElementById("final").textContent = formatNumber(final);
+      document.getElementById("inWords").textContent = numberToWords(final);
 
+      // Fill items
       const table = document.getElementById("itemTable");
-      let total = 0;
-
       items.forEach(item => {
         const amount = item.qty * item.price;
-        total += amount;
-
         const row = document.createElement("tr");
         row.innerHTML = `
           <td>${item.name} x${item.qty}</td>
@@ -102,20 +137,17 @@
         table.appendChild(row);
       });
 
-      const finalAmount = total - discount;
-      document.getElementById("total").textContent = formatNumber(total);
-      document.getElementById("final").textContent = formatNumber(finalAmount);
-      document.getElementById("inWords").textContent = numberToWords(finalAmount);
-
+      // Generate QR
       const qrURL = generateQR(
         "0501000130594",
         "NGUYEN TAN HIEN",
         "VCB",
-        finalAmount,
+        final,
         orderId
       );
       document.getElementById("qrImage").src = qrURL;
 
+      // Auto print
       setTimeout(() => window.print(), 800);
     }
   </script>
