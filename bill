@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>In Hóa Đơn</title>
+  <style>
+    body {
+      width: 300px;
+      font-family: monospace;
+      font-size: 13px;
+      margin: 0 auto;
+      padding: 5px;
+    }
+    .center { text-align: center; }
+    .logo img { width: 60px; }
+    .line { border-top: 1px dashed #000; margin: 6px 0; }
+    table { width: 100%; border-collapse: collapse; }
+    td { vertical-align: top; }
+    .qr img { width: 150px; }
+  </style>
+</head>
+<body onload="renderBill()">
+  <div class="center logo">
+    <img src="https://gpems.net/images/ico.png" />
+  </div>
+  <div class="center"><strong>CÔNG TY TNHH GIẢI PHÁP SỐ EMS</strong></div>
+  <div class="center">ĐC: 93/4 Liên Khu 5-6, Bình Tân, TP.HCM</div>
+  <div class="center">Hotline: 0903375265</div>
+
+  <div class="line"></div>
+  <div class="center"><strong>HÓA ĐƠN BÁN HÀNG</strong></div>
+  <div>Mã HĐ: <span id="orderId"></span></div>
+  <div>Ngày: <span id="orderDate"></span></div>
+  <div>Khách: <span id="customerName"></span></div>
+  <div class="line"></div>
+  <table id="itemTable"></table>
+  <div class="line"></div>
+  <div>Tổng tiền: <span id="total"></span> đ</div>
+  <div>Giảm giá: <span id="discount"></span> đ</div>
+  <div><strong>Phải thanh toán: <span id="final"></span> đ</strong></div>
+  <div>Số tiền (chữ): <br><em id="inWords"></em></div>
+
+  <div class="qr center">
+    <img id="qrImage" src="" />
+    <div><small>Quét VietQR để thanh toán</small></div>
+  </div>
+  <div class="line"></div>
+  <div class="center">Xin cảm ơn quý khách!</div>
+
+  <script>
+    function getParam(name) {
+      return decodeURIComponent(new URLSearchParams(location.search).get(name) || "");
+    }
+
+    function numberToWords(n) {
+      const formatter = new Intl.NumberFormat('vi-VN', {
+        style: 'currency', currency: 'VND'
+      });
+      return formatter.format(n).replace("₫", " đồng");
+    }
+
+    function formatNumber(n) {
+      return new Intl.NumberFormat("vi-VN").format(n);
+    }
+
+    function generateQR(account, name, bankCode, amount, addInfo) {
+      return `https://img.vietqr.io/image/${bankCode}-${account}-compact2.png?amount=${amount}&addInfo=${addInfo}&accountName=${encodeURIComponent(name)}`;
+    }
+
+    function renderBill() {
+      const orderId = getParam("orderId");
+      const date = getParam("date");
+      const customer = getParam("customer");
+      const discount = parseInt(getParam("discount") || "0", 10);
+      let items = [];
+
+      try {
+        items = JSON.parse(getParam("items"));
+      } catch (e) {
+        alert("Không thể đọc dữ liệu sản phẩm.");
+        return;
+      }
+
+      // Fill general info
+      document.getElementById("orderId").textContent = orderId;
+      document.getElementById("orderDate").textContent = date;
+      document.getElementById("customerName").textContent = customer;
+      document.getElementById("discount").textContent = formatNumber(discount);
+
+      const table = document.getElementById("itemTable");
+      let total = 0;
+
+      items.forEach(item => {
+        const amount = item.qty * item.price;
+        total += amount;
+
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${item.name} x${item.qty}</td>
+          <td style="text-align:right">${formatNumber(amount)} đ</td>
+        `;
+        table.appendChild(row);
+      });
+
+      const finalAmount = total - discount;
+      document.getElementById("total").textContent = formatNumber(total);
+      document.getElementById("final").textContent = formatNumber(finalAmount);
+      document.getElementById("inWords").textContent = numberToWords(finalAmount);
+
+      const qrURL = generateQR(
+        "0501000130594",
+        "NGUYEN TAN HIEN",
+        "VCB",
+        finalAmount,
+        orderId
+      );
+      document.getElementById("qrImage").src = qrURL;
+
+      setTimeout(() => window.print(), 800);
+    }
+  </script>
+</body>
+</html>
